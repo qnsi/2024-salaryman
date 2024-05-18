@@ -116,13 +116,14 @@ function App() {
         }}
       >
         {selectedTasks.map((selectedTaskId) => {
+          const selectedTask = tasks.find((task) => task.id === selectedTaskId);
           const childTasks =
             selectedTaskId === 0
               ? rootTasks
               : tasks.filter((task) => task.parents.includes(selectedTaskId));
           return (
             <List
-              parentId={selectedTaskId}
+              parentTask={selectedTask}
               tasks={childTasks}
               createTask={createTask}
               updateTask={updateTask}
@@ -145,14 +146,14 @@ type Task = {
 };
 
 export const List = ({
-  parentId,
+  parentTask,
   tasks,
   updateTask,
   createTask,
   deleteTask,
   setSelectedTasks,
 }: {
-  parentId: number;
+  parentTask?: Task;
   tasks: Task[];
   updateTask: (taskId: number, newTask: Task) => void;
   createTask: (newTask: Task, parentId: number) => void;
@@ -179,6 +180,7 @@ export const List = ({
         borderRadius: "10px",
       }}
     >
+      <p>{parentTask?.name || "Main"}</p>
       {tasks.map((task) => {
         return (
           <Card
@@ -187,12 +189,14 @@ export const List = ({
             updateTask={updateTask}
             deleteTask={deleteTask}
             setSelectedTasks={setSelectedTasks}
-            parentId={parentId}
+            parentId={parentTask?.id || 0}
           />
         );
       })}
       <NewTaskCard
-        createTask={(text) => createTask({ name: text } as Task, parentId)}
+        createTask={(text) =>
+          createTask({ name: text } as Task, parentTask?.id || 0)
+        }
       />
     </div>
   );
@@ -215,6 +219,9 @@ const Card = ({
   const [taskText, setTaskText] = React.useState(task.name);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState(false);
   const [hover, setHover] = React.useState(false);
+  const style = {
+    margin: "10px 20px",
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -243,7 +250,7 @@ const Card = ({
   };
 
   return editMode ? (
-    <form onSubmit={handleSubmit}>
+    <form style={style} onSubmit={handleSubmit}>
       <input
         style={{
           margin: "10px 20px",
@@ -258,17 +265,9 @@ const Card = ({
       />
     </form>
   ) : (
-    <div
-      style={{
-        margin: "10px 20px",
-      }}
-    >
+    <div style={style}>
       <div
         className={"card"}
-        draggable={true}
-        onDragStart={(event) => {
-          event.dataTransfer.setData("text/plain", `${task.id}`);
-        }}
         style={{
           width: "70%",
           backgroundColor: "#fff",
