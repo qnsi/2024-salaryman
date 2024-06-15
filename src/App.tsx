@@ -1,5 +1,6 @@
 import React, { FormEvent } from "react";
 import { createClient } from "@supabase/supabase-js";
+import "./App.css";
 
 console.log(process.env);
 if (
@@ -26,6 +27,10 @@ function App() {
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [filterText, setFilterText] = React.useState("");
   const [selectedTasks, setSelectedTasks] = React.useState<number[]>([0]);
+  const [newTaskMode, setNewTaskMode] = React.useState(false);
+
+  console.log("tasks: ", tasks);
+  console.log("selectedtASKS: ", selectedTasks);
 
   React.useEffect(() => {
     getTasks();
@@ -54,11 +59,11 @@ function App() {
     }
   }
 
-  async function createTask(newTask: Task, parentId: number) {
-    console.log("createTask: newTask: ", newTask);
+  async function createTask(text: string, parentId: number) {
+    console.log("createTask: newTask text: ", text);
     const { data: tasks, error } = await supabase
       .from("tasks")
-      .insert({ text: newTask.name })
+      .insert({ text })
       .select();
     // handleError
     if (parentId !== 0 && tasks && tasks[0]) {
@@ -93,46 +98,63 @@ function App() {
     console.log("tasks", tasks);
   }, [tasks]);
 
+  const handleCreateTask = (text: string) => {
+    createTask(text, 0);
+  };
+
   // const filteredTasks = tasks.filter((task) => {
   //   return task.name.toLowerCase().includes(filterText.toLowerCase());
   // });
   //
-  const rootTasks = tasks.filter((task) => task.parents.length === 0);
-
   return (
     <>
+      <label htmlFor="filter">Filter tasks</label>
       <input
+        id="filter"
         type="text"
         value={filterText}
         onChange={(e) => setFilterText(e.currentTarget.value)}
       />
-      <div
+      <ul
+        className="tree"
         style={{
           fontFamily: "system-ui, sans-serif",
           lineHeight: "1.8",
-          display: "flex",
-          flexDirection: "row",
-          justifyContent: "center",
+          backgroundColor: "#eee",
+          margin: "0 10px 0 10px",
+          padding: "10px",
+          borderRadius: "10px",
         }}
       >
-        {selectedTasks.map((selectedTaskId) => {
-          const selectedTask = tasks.find((task) => task.id === selectedTaskId);
-          const childTasks =
-            selectedTaskId === 0
-              ? rootTasks
-              : tasks.filter((task) => task.parents.includes(selectedTaskId));
-          return (
-            <List
-              parentTask={selectedTask}
-              tasks={childTasks}
-              createTask={createTask}
-              updateTask={updateTask}
-              deleteTask={deleteTask}
-              setSelectedTasks={setSelectedTasks}
-            />
-          );
-        })}
-      </div>
+        <List
+          parentTask={undefined}
+          tasks={tasks}
+          createTask={createTask}
+          updateTask={updateTask}
+          deleteTask={deleteTask}
+          setSelectedTasks={setSelectedTasks}
+          intendationLevel={1}
+        />
+      </ul>
+      {newTaskMode ? (
+        <NewTaskCard
+          createTask={handleCreateTask}
+          setNewTaskMode={setNewTaskMode}
+        />
+      ) : (
+        <button
+          className={"newTaskCard"}
+          style={{
+            backgroundColor: "#fff",
+            margin: "10px 20px",
+            padding: "5px",
+            display: "block",
+          }}
+          onClick={() => setNewTaskMode(true)}
+        >
+          + Add new task
+        </button>
+      )}
     </>
   );
 }
@@ -152,53 +174,97 @@ export const List = ({
   createTask,
   deleteTask,
   setSelectedTasks,
+  intendationLevel,
 }: {
   parentTask?: Task;
   tasks: Task[];
   updateTask: (taskId: number, newTask: Task) => void;
-  createTask: (newTask: Task, parentId: number) => void;
+  createTask: (text: string, parentId: number) => void;
   deleteTask: (taskId: number) => void;
   setSelectedTasks: React.Dispatch<React.SetStateAction<number[]>>;
+  intendationLevel: number;
 }) => {
+  const currentLevelTasks = parentTask
+    ? tasks.filter((task) => task.parents.includes(parentTask.id))
+    : tasks.filter((task) => task.parents.length === 0);
+
   return (
-    <div
-      className={"list"}
-      // onDragOver={(event) => {
-      //   event.preventDefault(); // Necessary to allow dropping
-      // }}
-      // onDrop={(event) => {
-      //   const draggedTaskId = event.dataTransfer.getData("text/plain");
-      //   const task = tasks.find((task) => task.id === Number(draggedTaskId));
-      //   console.log("onDrop: task: ", task);
-      //   if (task) updateTask(task.id, { ...task, list: listType });
-      // }}
-      style={{
-        backgroundColor: "#eee",
-        width: "20vw",
-        margin: "0 10px 0 10px",
-        padding: "10px",
-        borderRadius: "10px",
-      }}
-    >
-      <p>{parentTask?.name || "Main"}</p>
-      {tasks.map((task) => {
+    <>
+      {currentLevelTasks.map((task) => {
         return (
-          <Card
-            key={task.name}
-            task={task}
+          <CardWithChildren
+            parentTask={parentTask}
+            tasks={tasks}
             updateTask={updateTask}
+            createTask={createTask}
             deleteTask={deleteTask}
             setSelectedTasks={setSelectedTasks}
-            parentId={parentTask?.id || 0}
+            intendationLevel={intendationLevel}
+            task={task}
           />
         );
       })}
-      <NewTaskCard
-        createTask={(text) =>
-          createTask({ name: text } as Task, parentTask?.id || 0)
-        }
+    </>
+  );
+};
+
+const CardWithChildren = ({
+  parentTask,
+  tasks,
+  updateTask,
+  createTask,
+  deleteTask,
+  setSelectedTasks,
+  intendationLevel,
+  task,
+}: {
+  parentTask?: Task;
+  tasks: Task[];
+  updateTask: (taskId: number, newTask: Task) => void;
+  createTask: (text: string, parentId: number) => void;
+  deleteTask: (taskId: number) => void;
+  setSelectedTasks: React.Dispatch<React.SetStateAction<number[]>>;
+  intendationLevel: number;
+  task: Task;
+}) => {
+  const [showChildren, setShowChildren] = React.useState(true);
+  const taskChildren = (parentTask: Task) => {
+    return tasks.filter((task) => task.parents.includes(parentTask.id));
+  };
+
+  const tasksHiddenNote =
+    (taskChildren(task).length > 0 &&
+      !showChildren &&
+      `${taskChildren(task).length} tasks hidden`) ||
+    "";
+
+  return (
+    <li>
+      <Card
+        key={task.name}
+        task={task}
+        updateTask={updateTask}
+        deleteTask={deleteTask}
+        createTask={createTask}
+        setSelectedTasks={setSelectedTasks}
+        setShowChildren={setShowChildren}
+        parentId={parentTask?.id || 0}
+        tasksHiddenNote={tasksHiddenNote}
       />
-    </div>
+      {taskChildren(task).length > 0 && showChildren && (
+        <ul>
+          <List
+            parentTask={task}
+            tasks={tasks}
+            updateTask={updateTask}
+            createTask={createTask}
+            deleteTask={deleteTask}
+            setSelectedTasks={setSelectedTasks}
+            intendationLevel={intendationLevel + 1}
+          />
+        </ul>
+      )}
+    </li>
   );
 };
 
@@ -208,20 +274,24 @@ const Card = ({
   deleteTask,
   setSelectedTasks,
   parentId,
+  setShowChildren,
+  createTask,
+  tasksHiddenNote,
 }: {
   task: Task;
   updateTask: (taskId: number, newTask: Task) => void;
   deleteTask: (taskId: number) => void;
   setSelectedTasks: React.Dispatch<React.SetStateAction<number[]>>;
   parentId: number;
+  setShowChildren: React.Dispatch<React.SetStateAction<boolean>>;
+  createTask: (text: string, parentId: number) => void;
+  tasksHiddenNote: string;
 }) => {
   const [editMode, setEditMode] = React.useState(false);
+  const [newTaskMode, setNewTaskMode] = React.useState(false);
   const [taskText, setTaskText] = React.useState(task.name);
   const [deleteConfirmation, setDeleteConfirmation] = React.useState(false);
   const [hover, setHover] = React.useState(false);
-  const style = {
-    margin: "10px 20px",
-  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -244,13 +314,17 @@ const Card = ({
     });
   };
 
+  const handleCreateTask = (text: string) => {
+    createTask(text, task.id);
+  };
+
   const handleEdit = () => {
     setEditMode(true);
     setHover(false);
   };
 
   return editMode ? (
-    <form style={style} onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit}>
       <input
         style={{
           margin: "10px 20px",
@@ -265,7 +339,7 @@ const Card = ({
       />
     </form>
   ) : (
-    <div style={style}>
+    <div>
       <div
         className={"card"}
         style={{
@@ -280,9 +354,13 @@ const Card = ({
         }}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
+        onClick={() => setShowChildren((old) => !old)}
       >
-        <p onClick={handleClick} style={{ margin: "0px" }}>
+        <p onClick={handleEdit} style={{ margin: "0px" }}>
           {task.name}
+          <span style={{ marginLeft: 20, color: "#aaa" }}>
+            {tasksHiddenNote}
+          </span>
         </p>
         {hover && (
           <div>
@@ -292,31 +370,56 @@ const Card = ({
                 <button onClick={() => setDeleteConfirmation(false)}>N</button>
               </>
             ) : (
-              <button onClick={() => setDeleteConfirmation(true)}>X</button>
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteConfirmation(true);
+                  }}
+                >
+                  X
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setNewTaskMode(true);
+                  }}
+                >
+                  Add
+                </button>
+              </>
             )}
           </div>
         )}
       </div>
+      {newTaskMode && (
+        <NewTaskCard
+          createTask={handleCreateTask}
+          setNewTaskMode={setNewTaskMode}
+        />
+      )}
     </div>
   );
 };
 
 const NewTaskCard = ({
   createTask,
+  setNewTaskMode,
 }: {
   createTask: (text: string) => void;
+  setNewTaskMode: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
-  const [editMode, setEditMode] = React.useState(false);
   const [newTaskText, setNewTaskText] = React.useState("");
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     // TODO: sent listType
     createTask(newTaskText);
+    setNewTaskMode(false);
     setNewTaskText("");
   };
 
-  return editMode ? (
+  return (
     <form onSubmit={handleSubmit}>
       <input
         style={{
@@ -326,22 +429,9 @@ const NewTaskCard = ({
         }}
         autoFocus={true}
         onChange={(e) => setNewTaskText(e.target.value)}
-        onBlur={() => setEditMode(false)}
+        onBlur={() => setNewTaskMode(false)}
         type="text"
       />
     </form>
-  ) : (
-    <button
-      className={"newTaskCard"}
-      style={{
-        backgroundColor: "#fff",
-        margin: "10px 20px",
-        padding: "5px",
-        display: "block",
-      }}
-      onClick={() => setEditMode(true)}
-    >
-      + Add new task
-    </button>
   );
 };
