@@ -102,10 +102,31 @@ function App() {
     createTask(text, 0);
   };
 
-  // const filteredTasks = tasks.filter((task) => {
-  //   return task.name.toLowerCase().includes(filterText.toLowerCase());
-  // });
-  //
+  const filteredTasksWithParents = () => {
+    var filteredChildren = tasks.filter((task) => {
+      return task.name.toLowerCase().includes(filterText.toLowerCase());
+    });
+
+    const childrenGrandparents = (children: Task): Task[] => {
+      const parents = tasks.filter((task) =>
+        children.parents.includes(task.id),
+      );
+      return parents
+        ? [children].concat(
+          parents.reduce(
+            (acc: Task[], parent) => acc.concat(childrenGrandparents(parent)),
+            [],
+          ),
+        )
+        : [children];
+    };
+
+    return filteredChildren.reduce(
+      (acc: Task[], parent) => acc.concat(childrenGrandparents(parent)),
+      [],
+    );
+  };
+
   return (
     <>
       <label htmlFor="filter">Filter tasks</label>
@@ -128,6 +149,7 @@ function App() {
       >
         <List
           parentTask={undefined}
+          // tasks={filteredTasksWithParents()}
           tasks={tasks}
           createTask={createTask}
           updateTask={updateTask}

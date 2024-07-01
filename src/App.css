@@ -20,9 +20,9 @@ ul.tree li:last-child {
 }
 ul.tree li:before {
   position: relative;
-  top: -0.3em;
+  top: 1em;
   height: 1em;
-  width: 12px;
+  width: 6px;
   color: white;
   border-bottom: 1px solid rgb(100, 100, 100);
   content: "";
