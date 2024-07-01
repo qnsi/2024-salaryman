@@ -2,6 +2,9 @@ import React, { FormEvent } from "react";
 import { createClient } from "@supabase/supabase-js";
 import "./App.css";
 
+import "./index.css";
+import { Session } from "@supabase/supabase-js";
+
 console.log(process.env);
 if (
   !process.env.REACT_APP_SUPABASE_URL ||
@@ -24,6 +27,65 @@ enum ListType {
 }
 
 function App() {
+  const [session, setSession] = React.useState<Session | null>(null);
+
+  React.useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  console.log("session: ", session);
+
+  const signIn = async (password: string) => {
+    console.log("Signin start");
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: "arturkesik@gmail.com",
+      password,
+    });
+    console.log("signIn data: ", data);
+    console.log("signIn error: ", error);
+  };
+
+  if (!session) {
+    return <SignIn signIn={signIn} />;
+  } else {
+    return <MainApp />;
+  }
+}
+
+function SignIn({ signIn }: { signIn: (password: string) => void }) {
+  const [password, setPassword] = React.useState("");
+
+  return (
+    <form>
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <button
+        onClick={(event) => {
+          event.preventDefault();
+          signIn(password);
+          setPassword("");
+        }}
+      >
+        Secret button
+      </button>
+    </form>
+  );
+}
+
+function MainApp() {
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [filterText, setFilterText] = React.useState("");
   const [selectedTasks, setSelectedTasks] = React.useState<number[]>([0]);
