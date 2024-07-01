@@ -471,6 +471,14 @@ const Card = ({
                 >
                   Add
                 </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowChildren((old) => !old);
+                  }}
+                >
+                  Hide
+                </button>
               </>
             )}
           </div>
