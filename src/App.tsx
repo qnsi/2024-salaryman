@@ -440,8 +440,8 @@ const Card = ({
         onMouseLeave={() => setHover(false)}
         onClick={() => setShowChildren((old) => !old)}
       >
-        <p onClick={handleEdit} style={{ margin: "0px" }}>
-          {task.name}
+        <p style={{ margin: "0px" }}>
+          <span onClick={handleEdit}>{task.name}</span>
           <span style={{ marginLeft: 20, color: "#aaa" }}>
             {tasksHiddenNote}
           </span>
