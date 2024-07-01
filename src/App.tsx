@@ -164,30 +164,44 @@ function MainApp() {
     createTask(text, 0);
   };
 
-  const filteredTasksWithParents = () => {
-    var filteredChildren = tasks.filter((task) => {
-      return task.name.toLowerCase().includes(filterText.toLowerCase());
-    });
+  // const filteredTasks = () => {
+  //   return tasks.filter((task) => {
+  //     return task.name.toLowerCase().includes(filterText.toLowerCase());
+  //   });
+  // };
 
-    const childrenGrandparents = (children: Task): Task[] => {
-      const parents = tasks.filter((task) =>
-        children.parents.includes(task.id),
-      );
-      return parents
-        ? [children].concat(
-          parents.reduce(
-            (acc: Task[], parent) => acc.concat(childrenGrandparents(parent)),
-            [],
-          ),
-        )
-        : [children];
+  const filteredTasksWithParents = React.useMemo(() => {
+    const lowerCaseFilterText = filterText.toLowerCase();
+
+    // Step 1: Filter tasks that include the filter text
+    const filteredTasks = new Set(
+      tasks.filter((task) =>
+        task.name.toLowerCase().includes(lowerCaseFilterText),
+      ),
+    );
+
+    // Step 2: Find all parents of the filtered tasks
+    const findAllParents = (task: Task, allParents: Set<number>) => {
+      const parents = tasks.filter((t) => task.parents.includes(t.id));
+      parents.forEach((parent) => {
+        if (!allParents.has(parent.id)) {
+          allParents.add(parent.id);
+          findAllParents(parent, allParents);
+        }
+      });
     };
 
-    return filteredChildren.reduce(
-      (acc: Task[], parent) => acc.concat(childrenGrandparents(parent)),
-      [],
+    // Collect all parent IDs for filtered tasks
+    const allParentIds = new Set<number>();
+    filteredTasks.forEach((task) => findAllParents(task, allParentIds));
+
+    // Combine filtered tasks and their parents
+    const resultTasks = tasks.filter(
+      (task) => filteredTasks.has(task) || allParentIds.has(task.id),
     );
-  };
+
+    return resultTasks;
+  }, [tasks, filterText]);
 
   return (
     <>
@@ -211,8 +225,7 @@ function MainApp() {
       >
         <List
           parentTask={undefined}
-          // tasks={filteredTasksWithParents()}
-          tasks={tasks}
+          tasks={filteredTasksWithParents}
           createTask={createTask}
           updateTask={updateTask}
           deleteTask={deleteTask}
